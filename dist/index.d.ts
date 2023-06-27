@@ -1,6 +1,5 @@
 import { OpenAIApi, ChatCompletionFunctions, CreateChatCompletionRequest, ChatCompletionResponseMessage } from 'openai';
-import { z } from 'zod';
-type AnyZodObject = z.ZodObject<any>;
+type AnyZodObject = any;
 type ToolImplementation = (a?: any) => Promise<Record<string, any>> | Record<string, any>;
 type ToolDefenitionArgs = {
     name: string;
@@ -28,7 +27,7 @@ export declare function extractDataWithPrompt({ api, schema, prompt: content, me
     schema: AnyZodObject;
     prompt: string;
     metadataDescription?: string;
-} & Partial<Exclude<CreateChatCompletionRequest, 'messages' | 'functions' | 'function_call'>>): Promise<{
+} & Partial<Omit<CreateChatCompletionRequest, 'messages' | 'functions' | 'function_call'>>): Promise<{
     data: string | undefined;
     message: ChatCompletionResponseMessage;
 }>;

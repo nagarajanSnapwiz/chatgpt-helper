@@ -47,6 +47,11 @@
       "limit": "10 KB"
     }
   ],
+  "homepage": "https://github.com/nagarajanSnapwiz/chatgpt-helper#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nagarajanSnapwiz/chatgpt-helper.git"
+  },
   "devDependencies": {
     "@size-limit/preset-small-lib": "^8.2.4",
     "@tsconfig/recommended": "^1.0.2",
