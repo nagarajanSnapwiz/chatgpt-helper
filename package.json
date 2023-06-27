@@ -10,6 +10,7 @@
     "dist",
     "src"
   ],
+  "keywords":["chatGPT","chatGPT function calling"],
   "scripts": {
     "analyze": "size-limit --why",
     "build": "dts build",
