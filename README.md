@@ -1,103 +1,150 @@
-# DTS User Guide
+# ChatGPT Helper
 
-Congrats! You just saved yourself hours of work by bootstrapping this project with DTS. Let’s get you oriented with what’s here and how to use it.
+A thin layer of abstraction over chatGPT chat completion api and its function calling capabilities
 
-> This DTS setup is meant for developing libraries (not apps!) that can be published to NPM. If you’re looking to build a Node app, you could use `ts-node-dev`, plain `ts-node`, or simple `tsc`.
+## Features
 
-> If you’re new to TypeScript, checkout [this handy cheatsheet](https://devhints.io/typescript)
+- Use _[Zod](https://zod.dev/)_ schema to define the structure of the output
+- Create automatic agents for chatGPT in a very simple way
+- Nice abstraction over chatGPT function calling flow
 
-## Commands
+## Getting Started
 
-DTS scaffolds your new library inside `/src`.
-
-To run DTS, use:
-
-```bash
-npm start # or yarn start
+```
+npm i chatgpt-helper zod openai
 ```
 
-This builds to `/dist` and runs the project in watch mode so any edits you save inside `src` causes a rebuild to `/dist`.
+## usage
 
-To do a one-off build, use `npm run build` or `yarn build`.
+The library provides two ways to interact with ChatGPT
 
-To run tests, use `npm test` or `yarn test`.
+1. `extractDataWithPrompt` - extract structured data using a schema and prompt (simple way)
 
-## Configuration
+```typescript
+import { extractDataWithPrompt } from 'chatgpt-helper';
+import { Configuration, OpenAIApi } from 'openai';
+import { z } from 'zod';
 
-Code quality is set up for you with `prettier`, `husky`, and `lint-staged`. Adjust the respective fields in `package.json` accordingly.
+const api = new OpenAIApi(
+  new Configuration({
+    apiKey: '<openai key>',
+  })
+);
 
-### Jest
+//Zod schema describing the way we want the data to be structured
+const movieSchema = z.object({
+  name: z.string().describe('Name of the movie'), //describe method provides way to provide hints to chatGPT
+  year: z.number().describe('Year the movie came out'),
+  cast: z
+    .array(
+      z.object({
+        name: z.string().describe('Name of the actor'),
+        character: z
+          .string()
+          .describe('Name of the character the actor played'),
+      })
+    )
+    .describe('List of cast members sorted by their runtime'),
+  genres: z.array(z.string()).describe('List of genres associated with'),
+  runTime: z.string().describe('Runtime of the movie'),
+});
 
-Jest tests are set up to run with `npm test` or `yarn test`.
+extractDataWithPrompt({
+  api: api,
+  prompt: `Details of movie Big Fish`,
+  schema: movieSchema,
+}).then(({ data }) => {
+  console.log(JSON.parse(data));
+});
 
-### Bundle Analysis
-
-[`size-limit`](https://github.com/ai/size-limit) is set up to calculate the real cost of your library with `npm run size` and visualize the bundle with `npm run analyze`.
-
-#### Setup Files
-
-This is the folder structure we set up for you:
-
-```txt
-/src
-  index.ts        # EDIT THIS
-/test
-  index.test.ts   # EDIT THIS
-.gitignore
-package.json
-README.md         # EDIT THIS
-tsconfig.json
+// Output
+// {
+//   "name": "Big Fish",
+//   "year": 2003,
+//   "cast": [
+//     {
+//       "name": "Ewan McGregor",
+//       "character": "Edward Bloom (Young)"
+//     },
+//     {
+//       "name": "Albert Finney",
+//       "character": "Edward Bloom (Senior)"
+//     },
+//     {
+//       "name": "Billy Crudup",
+//       "character": "Will Bloom"
+//     },
+//     {
+//       "name": "Jessica Lange",
+//       "character": "Sandra Bloom"
+//     },
+//     {
+//       "name": "Helena Bonham Carter",
+//       "character": "Jenny (Young) / The Witch"
+//     }
+//   ],
+//   "genres": [
+//     "Adventure",
+//     "Drama",
+//     "Fantasy"
+//   ],
+//   "runTime": "2h 5min"
+// }
 ```
 
-### Rollup
+2. `runWithToolsUntilComplete` - create plugins for chatGPT on demand and allow chatGPT to call necessary tool as needed
 
-DTS uses [Rollup](https://rollupjs.org) as a bundler and generates multiple rollup configs for various module formats and build settings. See [Optimizations](#optimizations) for details.
+> :warning: **Be very careful on using this**: With this utility you are putting chatGPT **in charge** of calling the custom tools you provide.
 
-### TypeScript
+```typescript
+import { Tools, runWithToolsUntilComplete } from 'chatgpt-helper';
+import { Configuration, OpenAIApi } from 'openai';
+import { z } from 'zod';
 
-`tsconfig.json` is set up to interpret `dom` and `esnext` types, as well as `react` for `jsx`. Adjust according to your needs.
+const api = new OpenAIApi(
+  new Configuration({
+    apiKey: '<openai key>',
+  })
+);
 
-## Continuous Integration
+//Need to create zod schema if arguments needed for the tool
+const timeForFoodSchema = z.object({
+  name: z.string().describe('name of the food item'),
+});
 
-### GitHub Actions
+//Tool definitions and implementations
+const tools = new Tools()
+  .addTool({
+    name: 'currentTime',
+    purpose: 'Getting the current time',
+    implementation: () => {
+      return { currentTime: new Date().toLocaleTimeString() };
+    },
+  })
+  .addTool({
+    name: 'timeForFood',
+    purpose:
+      'Gives an approximate time taken for food to be ready when ordered in a hotel',
+    argSchema: timeForFoodSchema,
+    implementation: (arg: z.infer<typeof timeForFoodSchema>) => {
+      return { time: '30', unit: 'minutes' };
+    },
+  });
 
-Two actions are added by default:
+runWithToolsUntilComplete({
+  api: api,
+  prompt:
+    'I am Planning to have pizza from my favourite restaurant now. By what time that pizza would be completely digested?',
+  tools,
+}).then((r) => {
+  console.log(r.lastMessage);
+});
 
-- `main` which installs deps w/ cache, lints, tests, and builds on all pushes against a Node and OS matrix
-- `size` which comments cost comparison of your library on every pull request using [`size-limit`](https://github.com/ai/size-limit)
+//Output
 
-## Optimizations
+// {
+//  role: 'assistant',
+//  content: 'If you order pizza now, it will take approximately 30 minutes for the pizza to be ready. So, by 1:03 AM, the pizza should be completely digested. Please note that digestion time can vary depending on various factors such as metabolism, individual health conditions, and other factors.'
+//   }
 
-Please see the main `dts` [optimizations docs](https://github.com/weiran-zsd/dts-cli#optimizations). In particular, know that you can take advantage of development-only optimizations:
-
-```js
-// ./types/index.d.ts
-declare var __DEV__: boolean;
-
-// inside your code...
-if (__DEV__) {
-  console.log('foo');
-}
 ```
-
-You can also choose to install and use [invariant](https://github.com/weiran-zsd/dts-cli#invariant) and [warning](https://github.com/weiran-zsd/dts-cli#warning) functions.
-
-## Module Formats
-
-CJS, ESModules, and UMD module formats are supported.
-
-The appropriate paths are configured in `package.json` and `dist/index.js` accordingly. Please report if any issues are found.
-
-## Named Exports
-
-Per Palmer Group guidelines, [always use named exports.](https://github.com/palmerhq/typescript#exports) Code split inside your React app instead of your React library.
-
-## Including Styles
-
-There are many ways to ship styles, including with CSS-in-JS. DTS has no opinion on this, configure how you like.
-
-For vanilla CSS, you can include it at the root directory and add it to the `files` section in your `package.json`, so that it can be imported separately by your users and run through their bundler's loader.
-
-## Publishing to NPM
-
-We recommend using [np](https://github.com/sindresorhus/np).
