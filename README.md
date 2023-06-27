@@ -144,7 +144,12 @@ runWithToolsUntilComplete({
 
 // {
 //  role: 'assistant',
-//  content: 'If you order pizza now, it will take approximately 30 minutes for the pizza to be ready. So, by 1:03 AM, the pizza should be completely digested. Please note that digestion time can vary depending on various factors such as metabolism, individual health conditions, and other factors.'
-//   }
+//  content: 'If you order pizza now, it will take 
+// approximately 30 minutes for the pizza to be ready.
+// So, by 1:03 AM, the pizza should be completely digested. 
+// Please note that digestion time can vary depending on 
+// variousfactors such as metabolism, individual health 
+//  conditions, and other factors.'
+// }
 
 ```
