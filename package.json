@@ -1,6 +1,6 @@
 {
   "name": "chatgpt-helper",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "license": "MIT",
   "author": "Nagarajan",
   "main": "dist/index.js",
