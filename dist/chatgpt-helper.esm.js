@@ -1,3 +1,4 @@
+import split2 from 'split2';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z } from 'zod';
 
@@ -362,7 +363,9 @@ function _objectWithoutPropertiesLoose(source, excluded) {
 var _excluded = ["$schema", "additionalProperties"],
   _excluded2 = ["api", "prompt", "tools", "model", "messages"],
   _excluded3 = ["api", "schema", "prompt", "metadataDescription"],
-  _excluded4 = ["model"];
+  _excluded4 = ["api", "schema", "prompt", "metadataDescription"],
+  _excluded5 = ["model"],
+  _excluded6 = ["model"];
 function getParameterFromZod(schema) {
   var _zodToJsonSchema = zodToJsonSchema(schema),
     jsonSchema = _objectWithoutPropertiesLoose(_zodToJsonSchema, _excluded);
@@ -496,7 +499,7 @@ function _extractDataWithPrompt() {
             purpose: purpose,
             schema: schema
           });
-          _opts$model = opts.model, model = _opts$model === void 0 ? DEFAULT_MODEL : _opts$model, otherOpts = _objectWithoutPropertiesLoose(opts, _excluded4);
+          _opts$model = opts.model, model = _opts$model === void 0 ? DEFAULT_MODEL : _opts$model, otherOpts = _objectWithoutPropertiesLoose(opts, _excluded5);
           _context2.next = 5;
           return api.createChatCompletion(_extends({
             model: model,
@@ -530,6 +533,55 @@ function _extractDataWithPrompt() {
   }));
   return _extractDataWithPrompt.apply(this, arguments);
 }
+function extractStreamWithPrompt(_x3) {
+  return _extractStreamWithPrompt.apply(this, arguments);
+}
+function _extractStreamWithPrompt() {
+  _extractStreamWithPrompt = _asyncToGenerator( /*#__PURE__*/_regeneratorRuntime().mark(function _callee3(_ref5) {
+    var api, schema, content, _ref5$metadataDescrip, purpose, opts, fn, _opts$model2, model, otherOpts, chatCompletion;
+    return _regeneratorRuntime().wrap(function _callee3$(_context3) {
+      while (1) switch (_context3.prev = _context3.next) {
+        case 0:
+          api = _ref5.api, schema = _ref5.schema, content = _ref5.prompt, _ref5$metadataDescrip = _ref5.metadataDescription, purpose = _ref5$metadataDescrip === void 0 ? '' : _ref5$metadataDescrip, opts = _objectWithoutPropertiesLoose(_ref5, _excluded4);
+          fn = createExtractor({
+            purpose: purpose,
+            schema: schema
+          });
+          _opts$model2 = opts.model, model = _opts$model2 === void 0 ? DEFAULT_MODEL : _opts$model2, otherOpts = _objectWithoutPropertiesLoose(opts, _excluded6);
+          _context3.next = 5;
+          return api.createChatCompletion(_extends({
+            model: model,
+            messages: [{
+              role: 'user',
+              content: content
+            }],
+            functions: [fn],
+            function_call: {
+              name: fn.name
+            }
+          }, otherOpts, {
+            stream: true
+          }), {
+            responseType: 'stream'
+          });
+        case 5:
+          chatCompletion = _context3.sent;
+          return _context3.abrupt("return", chatCompletion.data.pipe(split2(function (line) {
+            if (line != null && line.trim() && !line.includes('[DONE]') && line.startsWith('data: ')) {
+              var _obj$choices, _obj$choices$, _obj$choices$$delta, _obj$choices$$delta$f;
+              var chunkJson = line.replace('data: ', '');
+              var obj = JSON.parse(chunkJson);
+              return (obj == null ? void 0 : (_obj$choices = obj.choices) == null ? void 0 : (_obj$choices$ = _obj$choices[0]) == null ? void 0 : (_obj$choices$$delta = _obj$choices$.delta) == null ? void 0 : (_obj$choices$$delta$f = _obj$choices$$delta.function_call) == null ? void 0 : _obj$choices$$delta$f.arguments) || '';
+            }
+          })));
+        case 7:
+        case "end":
+          return _context3.stop();
+      }
+    }, _callee3);
+  }));
+  return _extractStreamWithPrompt.apply(this, arguments);
+}
 
-export { Tools, extractDataWithPrompt, runWithToolsUntilComplete };
+export { Tools, createExtractor, extractDataWithPrompt, extractStreamWithPrompt, getParameterFromZod, runWithToolsUntilComplete };
 //# sourceMappingURL=chatgpt-helper.esm.js.map

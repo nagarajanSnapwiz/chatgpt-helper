@@ -1,3 +1,5 @@
+import split2 from 'split2';
+import { Readable } from 'stream';
 import {
   OpenAIApi,
   ChatCompletionFunctions,
@@ -10,7 +12,7 @@ import { z } from 'zod';
 //TODO: have a strict type
 type AnyZodObject = any;
 
-function getParameterFromZod(schema: AnyZodObject) {
+export function getParameterFromZod(schema: AnyZodObject) {
   const {
     $schema: _$schema,
     //@ts-ignore
@@ -20,7 +22,7 @@ function getParameterFromZod(schema: AnyZodObject) {
   return jsonSchema;
 }
 
-function createExtractor({
+export function createExtractor({
   purpose: description,
   schema,
 }: {
@@ -160,4 +162,47 @@ export async function extractDataWithPrompt({
   } else {
     throw new Error('ResultEmpty');
   }
+}
+
+export async function extractStreamWithPrompt({
+  api,
+  schema,
+  prompt: content,
+  metadataDescription: purpose = '',
+  ...opts
+}: {
+  api: OpenAIApi;
+  schema: AnyZodObject;
+  prompt: string;
+  metadataDescription?: string;
+} & Partial<
+  Omit<CreateChatCompletionRequest, 'messages' | 'functions' | 'function_call'>
+>) {
+  const fn = createExtractor({ purpose, schema });
+  const { model = DEFAULT_MODEL, ...otherOpts } = opts;
+  const chatCompletion = await api.createChatCompletion(
+    {
+      model,
+      messages: [{ role: 'user', content }],
+      functions: [fn],
+      function_call: { name: fn.name },
+      ...otherOpts,
+      stream: true,
+    },
+    { responseType: 'stream' }
+  );
+  //@ts-ignore
+  return chatCompletion.data.pipe(
+    split2((line) => {
+      if (
+        line?.trim() &&
+        !line.includes('[DONE]') &&
+        line.startsWith('data: ')
+      ) {
+        const chunkJson = line.replace('data: ', '');
+        const obj = JSON.parse(chunkJson);
+        return obj?.choices?.[0]?.delta?.function_call?.arguments || '';
+      }
+    })
+  ) as Readable;
 }

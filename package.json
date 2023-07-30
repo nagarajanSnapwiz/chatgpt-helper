@@ -10,7 +10,11 @@
     "dist",
     "src"
   ],
-  "keywords":["chatGPT","chatGPT function calling"],
+  "keywords": [
+    "chatGPT",
+    "chatGPT function calling",
+    "chatGPT streaming"
+  ],
   "scripts": {
     "analyze": "size-limit --why",
     "build": "dts build",
@@ -34,7 +38,6 @@
   "jest": {
     "testEnvironment": "node"
   },
-  "peerDependencies": {},
   "engines": {
     "node": ">=12"
   },
@@ -56,6 +59,7 @@
   "devDependencies": {
     "@size-limit/preset-small-lib": "^8.2.4",
     "@tsconfig/recommended": "^1.0.2",
+    "@types/split2": "^4.2.0",
     "dts-cli": "^2.0.3",
     "husky": "^8.0.3",
     "size-limit": "^8.2.4",
@@ -64,6 +68,7 @@
   },
   "dependencies": {
     "openai": "^3.3.0",
+    "split2": "^4.2.0",
     "zod": "^3.21.4",
     "zod-to-json-schema": "^3.21.1"
   }
