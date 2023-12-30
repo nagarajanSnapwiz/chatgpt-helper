@@ -1,11 +1,6 @@
 import split2 from 'split2';
 import { Readable } from 'stream';
-import {
-  OpenAIApi,
-  ChatCompletionFunctions,
-  CreateChatCompletionRequest,
-  ChatCompletionResponseMessage,
-} from 'openai';
+import { OpenAI } from 'openai';
 import { zodToJsonSchema } from 'zod-to-json-schema';
 import { z } from 'zod';
 
@@ -28,7 +23,7 @@ export function createExtractor({
 }: {
   purpose: string;
   schema: AnyZodObject;
-}): ChatCompletionFunctions {
+}): OpenAI.Chat.Completions.ChatCompletionCreateParams.Function {
   const parameters = getParameterFromZod(schema);
   return {
     name: 'metadata_extract',
@@ -49,7 +44,7 @@ type ToolDefenitionArgs = {
 };
 
 export class Tools {
-  tools: ChatCompletionFunctions[];
+  tools: OpenAI.Chat.Completions.ChatCompletionCreateParams.Function[];
   functions: Record<string, ToolImplementation>;
 
   constructor() {
@@ -75,11 +70,14 @@ export class Tools {
 }
 
 type RunWithToolsUntilCompleteArgs = {
-  api: OpenAIApi;
+  api: OpenAI;
   prompt: string;
   tools: Tools;
 } & Partial<
-  Exclude<CreateChatCompletionRequest, 'functions' | 'function_call'>
+  Exclude<
+    OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+    'functions' | 'function_call'
+  >
 >;
 
 const DEFAULT_MODEL = 'gpt-3.5-turbo-0613';
@@ -94,9 +92,10 @@ export async function runWithToolsUntilComplete({
 }: RunWithToolsUntilCompleteArgs) {
   let complete = false;
   messages = [...messages, { role: 'user', content: prompt }];
-  let lastMessage: ChatCompletionResponseMessage | undefined = undefined;
+  let lastMessage: OpenAI.Chat.Completions.ChatCompletionMessage | undefined =
+    undefined;
   while (!complete) {
-    const chatCompletion = await api.createChatCompletion({
+    const chatCompletion = await api.chat.completions.create({
       model,
       messages,
       functions: tools.tools,
@@ -104,7 +103,7 @@ export async function runWithToolsUntilComplete({
       ...opts,
     });
 
-    const { message } = chatCompletion.data.choices?.[0];
+    const { message } = chatCompletion.choices?.[0];
     lastMessage = message;
     if (message) {
       messages = [...messages, message];
@@ -140,24 +139,27 @@ export async function extractDataWithPrompt({
   metadataDescription: purpose = '',
   ...opts
 }: {
-  api: OpenAIApi;
+  api: OpenAI;
   schema: AnyZodObject;
   prompt: string;
   metadataDescription?: string;
 } & Partial<
-  Omit<CreateChatCompletionRequest, 'messages' | 'functions' | 'function_call'>
+  Omit<
+    OpenAI.Chat.Completions.ChatCompletionCreateParamsNonStreaming,
+    'messages' | 'functions' | 'function_call'
+  >
 >) {
   const fn = createExtractor({ purpose, schema });
   const { model = DEFAULT_MODEL, ...otherOpts } = opts;
-  const chatCompletion = await api.createChatCompletion({
+  const chatCompletion = await api.chat.completions.create({
     model,
     messages: [{ role: 'user', content }],
     functions: [fn],
     function_call: { name: fn.name },
     ...otherOpts,
   });
-  if (chatCompletion.data?.choices?.[0]?.message?.function_call) {
-    const { message } = chatCompletion.data.choices?.[0];
+  if (chatCompletion.choices?.[0]?.message?.function_call) {
+    const { message } = chatCompletion.choices?.[0];
     return { data: message!.function_call!.arguments, message };
   } else {
     throw new Error('ResultEmpty');
@@ -171,26 +173,26 @@ export async function extractStreamWithPrompt({
   metadataDescription: purpose = '',
   ...opts
 }: {
-  api: OpenAIApi;
+  api: OpenAI;
   schema: AnyZodObject;
   prompt: string;
   metadataDescription?: string;
 } & Partial<
-  Omit<CreateChatCompletionRequest, 'messages' | 'functions' | 'function_call'>
+  Omit<
+    OpenAI.Chat.Completions.ChatCompletionCreateParamsStreaming,
+    'messages' | 'functions' | 'function_call'
+  >
 >) {
   const fn = createExtractor({ purpose, schema });
   const { model = DEFAULT_MODEL, ...otherOpts } = opts;
-  const chatCompletion = await api.createChatCompletion(
-    {
-      model,
-      messages: [{ role: 'user', content }],
-      functions: [fn],
-      function_call: { name: fn.name },
-      ...otherOpts,
-      stream: true,
-    },
-    { responseType: 'stream' }
-  );
+  const chatCompletion = await api.chat.completions.create({
+    model,
+    messages: [{ role: 'user', content }],
+    functions: [fn],
+    function_call: { name: fn.name },
+    ...otherOpts,
+    stream: true,
+  });
   //@ts-ignore
   return chatCompletion.data.pipe(
     split2((line) => {
